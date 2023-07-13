@@ -1,0 +1,27 @@
+[package]
+name = "debug_led"
+version = "0.1.0"
+authors = ["Sofiane <sofiane.meftah@epita.fr>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+embedded-hal = { version = "0.2.7" }
+smart-leds = { version = "0.3.0", optional = true }
+
+[features]
+smart-leds = ["dep:smart-leds"]
+
+[dev-dependencies]
+esp32s3-hal = { version = "0.10.0" }
+esp-backtrace = { version = "0.7.0", features = ["esp32s3", "panic-handler", "exception-handler", "print-uart"] }
+esp-println = { version = "0.5.0", features = ["esp32s3"] }
+ssd1306 = "0.8.0"
+embedded-graphics = "0.8.0"
+esp-hal-smartled = { version = "0.3.0", features = ["esp32s3"] }
+smart-leds = { version = "0.3.0" }
+
+[[example]]
+name = "esp32s3_ssd1306"
+path = "examples/esp32s3_ssd1306.rs"
+required-features = ["smart-leds"]
