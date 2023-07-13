@@ -16,7 +16,7 @@ macro_rules! derr {
     }
 }
 
-trait DebugReportable<T> {
+pub trait DebugReportable<T> {
     fn unwrap_del<E: core::fmt::Debug>(self, dispatcher: &mut DebugLed<E>, report: DebugReport) -> T;
 }
 

@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use debug_led::{DebugLed, derr};
+use debug_led::{DebugLed, DebugReportable, DebugReport::*, derr};
 
 use embedded_graphics::{
     mono_font::{
@@ -76,7 +76,7 @@ fn main() -> ! {
         delay: &mut Delay::new(&clocks),
         timings: debug_led::DEFAULT_TIMINGS
     };
-    del.set_status(false);
+    (del.set_status)(false).unwrap();
 
     // Create a new peripheral object with the described wiring
     // and standard I2C clock speed
@@ -96,7 +96,7 @@ fn main() -> ! {
     let interface = I2CDisplayInterface::new(i2c);
     let mut display = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-    derr!(del, display.init() => Unary(1));
+    display.init().unwrap_del(&mut del, Unary(1));
 
     // Specify different text styles
     let text_style = MonoTextStyleBuilder::new()
