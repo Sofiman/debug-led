@@ -1,5 +1,6 @@
 #![no_std]
 
+use core::fmt::Debug;
 use core::ops::FnMut;
 use embedded_hal::blocking::delay::DelayMs;
 
@@ -17,16 +18,43 @@ macro_rules! derr {
 }
 
 pub trait DebugReportable<T> {
-    fn unwrap_del<E: core::fmt::Debug>(self, dispatcher: &mut DebugLed<E>, report: DebugReport) -> T;
+    fn unwrap_del<E: Debug>(self, dispatcher: &mut DebugLed<E>, report: DebugReport) -> T;
+    fn expect_del<E: Debug>(self, msg: &str, dispatcher: &mut DebugLed<E>, report: DebugReport) -> T;
 }
 
-impl<Res, Error: core::fmt::Debug> DebugReportable<Res> for Result<Res, Error> {
-    fn unwrap_del<E: core::fmt::Debug>(self, dispatcher: &mut DebugLed<E>, report: DebugReport) -> Res {
+impl<Res, Error: Debug> DebugReportable<Res> for Result<Res, Error> {
+    fn unwrap_del<E: Debug>(self, dispatcher: &mut DebugLed<E>, report: DebugReport) -> Res {
         if let Ok(val) = self {
             return val;
         }
         dispatcher.report(report);
         self.unwrap()
+    }
+
+    fn expect_del<E: Debug>(self, msg: &str, dispatcher: &mut DebugLed<E>, report: DebugReport) -> Res {
+        if let Ok(val) = self {
+            return val;
+        }
+        dispatcher.report(report);
+        self.expect(msg)
+    }
+}
+
+impl<Res> DebugReportable<Res> for Option<Res> {
+    fn unwrap_del<E: Debug>(self, dispatcher: &mut DebugLed<E>, report: DebugReport) -> Res {
+        if let Some(val) = self {
+            return val;
+        }
+        dispatcher.report(report);
+        self.unwrap()
+    }
+
+    fn expect_del<E: Debug>(self, msg: &str, dispatcher: &mut DebugLed<E>, report: DebugReport) -> Res {
+        if let Ok(val) = self {
+            return val;
+        }
+        dispatcher.report(report);
+        self.expect(msg)
     }
 }
 
@@ -46,7 +74,7 @@ pub struct DebugLed<'a, 'b, E> {
     pub delay: &'b mut dyn DelayMs<u32> 
 }
 
-impl<E: core::fmt::Debug> DebugLed<'_, '_, E> {
+impl<E: Debug> DebugLed<'_, '_, E> {
     pub fn report(&mut self, report: DebugReport) {
         self.try_report(report).expect("Failed to report error using debug-led");
     }
