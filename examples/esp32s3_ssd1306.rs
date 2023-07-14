@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use debug_led::{DebugLed, DebugReportable, DebugReport::*, derr};
+use debug_led::{DebugLed, DebugReportable, DebugReport::*};
 
 use embedded_graphics::{
     mono_font::{
@@ -26,6 +26,7 @@ use esp32s3_hal::{
 };
 use esp_backtrace as _;
 use nb::block;
+use esp_println::println;
 use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 use esp_hal_smartled::{smartLedAdapter, SmartLedsAdapter};
 use smart_leds::{
@@ -74,7 +75,11 @@ fn main() -> ! {
             led.write(brightness(gamma(col.into_iter()), 10)).map_err(|_| ())
         },
         delay: &mut Delay::new(&clocks),
-        timings: debug_led::DEFAULT_TIMINGS
+        timings: debug_led::DEFAULT_TIMINGS,
+        on_report: None,
+        debug_print: Some(&|err| {
+            println!("Oops... {err:?}");
+        })
     };
     (del.set_status)(false).unwrap();
 
@@ -127,9 +132,9 @@ fn main() -> ! {
         .draw(&mut display).unwrap();
 
         // Write buffer to display
-        derr!(del, display.flush() => Binary(2));
+        display.flush().unwrap_del(&mut del, Binary(2));
         // Clear display buffer
-        derr!(del, display.clear(BinaryColor::Off) => Binary(2));
+        display.clear(BinaryColor::Off).unwrap_del(&mut del, Binary(2));
 
         // Wait 5 seconds
         block!(timer0.wait()).unwrap();
@@ -144,9 +149,9 @@ fn main() -> ! {
         .draw(&mut display).unwrap();
 
         // Write buffer to display
-        derr!(del, display.flush() => Binary(3));
+        display.flush().unwrap_del(&mut del, Binary(3));
         // Clear display buffer
-        derr!(del, display.clear(BinaryColor::Off) => Binary(3));
+        display.clear(BinaryColor::Off).unwrap_del(&mut del, Binary(3));
 
         // Wait 5 seconds
         block!(timer0.wait()).unwrap();
