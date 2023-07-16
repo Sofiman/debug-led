@@ -1,17 +1,17 @@
 #![no_std]
 #![no_main]
 
-use debug_led::{DebugLed, DebugReportable, DebugReport::*, unwrap_del, expect_del};
+use debug_led::{DebugLed, DebugReportable, reports::*};
 
-use arrayvec::ArrayString;
-use core::fmt::Write;
 use embedded_graphics::{
-    mono_font::ascii::{FONT_6X10, FONT_10X20},
+    mono_font::{
+        ascii::{FONT_6X10, FONT_9X18_BOLD},
+        MonoTextStyleBuilder,
+    },
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Alignment, Text},
 };
-use embedded_graphics::mono_font::MonoTextStyle;
 use esp32s3_hal::{
     clock::ClockControl,
     gpio::IO,
@@ -26,9 +26,9 @@ use esp32s3_hal::{
 };
 use esp_backtrace as _;
 use nb::block;
+use esp_println::println;
 use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 use esp_hal_smartled::{smartLedAdapter, SmartLedsAdapter};
-use esp_println::println;
 use smart_leds::{
     brightness,
     gamma,
@@ -72,10 +72,10 @@ fn main() -> ! {
     let mut del = DebugLed {
         set_status: &mut |is_set| {
             let col = [if is_set { RGB8::new(255,0,0) } else { RGB8::new(0,0,0) }];
-            led.write(brightness(gamma(col.into_iter()), 10))
+            led.write(brightness(gamma(col.into_iter()), 10)).map_err(|_| ())
         },
         delay: &mut Delay::new(&clocks),
-        timings: (250, 50, 50, 250),
+        timings: debug_led::DEFAULT_TIMINGS,
         on_report: None,
         debug_print: Some(&|err| {
             println!("Oops... {err:?}");
@@ -87,51 +87,73 @@ fn main() -> ! {
     // and standard I2C clock speed
     let i2c = I2C::new(
         peripherals.I2C0,
-        io.pins.gpio8,
-        io.pins.gpio9,
-        1u32.MHz(),
+        io.pins.gpio9, // sda
+        io.pins.gpio8, // scl
+        100u32.kHz(),
         &mut system.peripheral_clock_control,
         &clocks,
     );
+
+    // Start timer (5 second interval)
+    timer0.start(5u64.secs());
 
     // Initialize display
     let interface = I2CDisplayInterface::new(i2c);
     let mut display = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-    expect_del!(display.init(), "Failed to initialize ssd1306 over i2c", &mut del, Unary(1));
+    display.init().unwrap_del(&mut del, Unary(1));
 
     // Specify different text styles
-    let text_style_big = MonoTextStyle::new(&FONT_10X20, BinaryColor::On);
+    let text_style = MonoTextStyleBuilder::new()
+        .font(&FONT_6X10)
+        .text_color(BinaryColor::On)
+        .build();
+    let text_style_big = MonoTextStyleBuilder::new()
+        .font(&FONT_9X18_BOLD)
+        .text_color(BinaryColor::On)
+        .build();
 
-    let title = Text::with_alignment(
-        "Crash in",
-        display.bounding_box().center() - Point::new(0, 8),
-        MonoTextStyle::new(&FONT_6X10, BinaryColor::On),
-        Alignment::Center,
-    );
-    let center = display.bounding_box().center() + Point::new(0, (4 + title.character_style.font.character_size.height) as i32);
-
-    timer0.start(100u32.millis());
-    let mut iters = 30u16;
-    let mut buf = ArrayString::<8>::new();
     loop {
-        let _ = timer0.wait();
-        unwrap_del!(display.clear(BinaryColor::Off), &mut del, Binary(0));
-        title.draw(&mut display).unwrap();
+        // Fill display bufffer with a centered text with two lines (and two text
+        // styles)
+         Text::with_alignment(
+            "esp-hal",
+            display.bounding_box().center() + Point::new(0, 0),
+            text_style_big,
+            Alignment::Center,
+        ).draw(&mut display).unwrap();
 
-        buf.clear();
-        write!(buf, "{}.{}s", iters / 10, iters % 10).unwrap();
         Text::with_alignment(
-            buf.as_str(),
-            center,
+            "Chip: ESP32S3",
+            display.bounding_box().center() + Point::new(0, 14),
+            text_style,
+            Alignment::Center,
+        )
+        .draw(&mut display).unwrap();
+
+        // Write buffer to display
+        display.flush().unwrap_del(&mut del, Binary(2));
+        // Clear display buffer
+        display.clear(BinaryColor::Off).unwrap_del(&mut del, Binary(2));
+
+        // Wait 5 seconds
+        block!(timer0.wait()).unwrap();
+
+        // Write single-line centered text "Hello World" to buffer
+        Text::with_alignment(
+            "Hello World!",
+            display.bounding_box().center(),
             text_style_big,
             Alignment::Center,
         )
         .draw(&mut display).unwrap();
 
-        unwrap_del!(display.flush(), &mut del, Binary(0));
+        // Write buffer to display
+        display.flush().unwrap_del(&mut del, Binary(3));
+        // Clear display buffer
+        display.clear(BinaryColor::Off).unwrap_del(&mut del, Binary(3));
 
-        iters = unwrap_del!(iters.checked_sub(1), &mut del, Blink);
+        // Wait 5 seconds
         block!(timer0.wait()).unwrap();
     }
 }
