@@ -83,7 +83,7 @@ pub trait DebugReport {
     fn try_report_once(&self, del: &mut DebugLed) -> Result<(), ()>;
 
     fn report_once(&self, del: &mut DebugLed) {
-        Self::try_report_once(self,del)
+        Self::try_report_once(self, del)
             .expect("Failed to report error using debug-led");
     }
 

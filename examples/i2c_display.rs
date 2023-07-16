@@ -1,12 +1,12 @@
 #![no_std]
 #![no_main]
 
-use debug_led::{DebugLed, DebugReportable, reports::*};
+use debug_led::{DebugLed, DebugReportable, reports::*, unwrap_del};
 
 use embedded_graphics::{
     mono_font::{
         ascii::{FONT_6X10, FONT_9X18_BOLD},
-        MonoTextStyleBuilder,
+        MonoTextStyle,
     },
     pixelcolor::BinaryColor,
     prelude::*,
@@ -35,6 +35,9 @@ use smart_leds::{
     RGB8,
     SmartLedsWrite,
 };
+
+const DISPLAY_INIT_ERR: Unary = Unary(1);
+const DISPLAY_DRAW_ERR: SmallBinary = SmallBinary(0);
 
 #[entry]
 fn main() -> ! {
@@ -101,22 +104,16 @@ fn main() -> ! {
     let interface = I2CDisplayInterface::new(i2c);
     let mut display = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate180)
         .into_buffered_graphics_mode();
-    display.init().unwrap_del(&mut del, Unary(1));
+    unwrap_del!(display.init(), &mut del, DISPLAY_INIT_ERR);
 
     // Specify different text styles
-    let text_style = MonoTextStyleBuilder::new()
-        .font(&FONT_6X10)
-        .text_color(BinaryColor::On)
-        .build();
-    let text_style_big = MonoTextStyleBuilder::new()
-        .font(&FONT_9X18_BOLD)
-        .text_color(BinaryColor::On)
-        .build();
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    let text_style_big = MonoTextStyle::new(&FONT_9X18_BOLD, BinaryColor::On);
 
     loop {
         // Fill display bufffer with a centered text with two lines (and two text
         // styles)
-         Text::with_alignment(
+        Text::with_alignment(
             "esp-hal",
             display.bounding_box().center() + Point::new(0, 0),
             text_style_big,
@@ -132,9 +129,9 @@ fn main() -> ! {
         .draw(&mut display).unwrap();
 
         // Write buffer to display
-        display.flush().unwrap_del(&mut del, Binary(2));
+        unwrap_del!(display.flush(), &mut del, DISPLAY_DRAW_ERR);
         // Clear display buffer
-        display.clear(BinaryColor::Off).unwrap_del(&mut del, Binary(2));
+        unwrap_del!(display.clear(BinaryColor::Off), &mut del, DISPLAY_DRAW_ERR);
 
         // Wait 5 seconds
         block!(timer0.wait()).unwrap();
@@ -149,9 +146,9 @@ fn main() -> ! {
         .draw(&mut display).unwrap();
 
         // Write buffer to display
-        display.flush().unwrap_del(&mut del, Binary(3));
+        unwrap_del!(display.flush(), &mut del, DISPLAY_DRAW_ERR);
         // Clear display buffer
-        display.clear(BinaryColor::Off).unwrap_del(&mut del, Binary(3));
+        unwrap_del!(display.clear(BinaryColor::Off), &mut del, DISPLAY_DRAW_ERR);
 
         // Wait 5 seconds
         block!(timer0.wait()).unwrap();

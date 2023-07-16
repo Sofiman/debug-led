@@ -26,6 +26,9 @@ use smart_leds::{
     SmartLedsWrite,
 };
 
+const SERIAL_ERR: Binary = Binary(0);
+const CRASH_ERR: Blink = Blink;
+
 #[entry]
 fn main() -> ! {
     let peripherals = Peripherals::take();
@@ -73,7 +76,7 @@ fn main() -> ! {
     };
     (del.set_status)(false).unwrap();
 
-    unwrap_del!(write!(esp_println::Printer, "Preparing to crash...\n"), &mut del, Binary(0));
+    unwrap_del!(write!(esp_println::Printer, "Preparing to crash...\n"), &mut del, SERIAL_ERR);
 
     timer0.start(100u32.millis());
 
@@ -83,9 +86,9 @@ fn main() -> ! {
 
         unwrap_del!(
             write!(esp_println::Printer, "\rCrashing in {}.{}s", iters / 10, iters % 10),
-            &mut del, Binary(0));
+            &mut del, SERIAL_ERR);
 
-        iters = unwrap_del!(iters.checked_sub(1), &mut del, Blink);
+        iters = unwrap_del!(iters.checked_sub(1), &mut del, CRASH_ERR);
         block!(timer0.wait()).unwrap();
     }
 }
